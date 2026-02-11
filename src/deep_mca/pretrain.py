@@ -128,7 +128,7 @@ def train(config: dict) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    set_seed(int(cfg_train.get("seed", 42)))
+    set_seed(cfg_train["seed"])
 
     # -- wandb --
     run = None
@@ -172,7 +172,7 @@ def train(config: dict) -> None:
         eval_ds = HFHexMap(
                 dataset_name=cfg_data["dataset"],
                 split=eval_split,
-                field=cfg_data.get("field", "hex"),
+                field=cfg_data["field"],
                 max_seq_len=cfg_data["max_seq_len"],
                 tokenizer=tokenizer,
             )
@@ -264,6 +264,7 @@ def train(config: dict) -> None:
 
     # Final save
     final_path = ckpt_dir / "backbone.pt"
+
     torch.save(model.backbone.state_dict(), final_path)
     print(f"Pretraining complete. Saved final backbone to {final_path}")
 
