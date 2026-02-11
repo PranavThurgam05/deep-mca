@@ -1,5 +1,6 @@
 import subprocess
-
+import math
+import torch
 
 def disassemble(hex_str: str, output_intel_syntax: bool = False) -> str:
     """
@@ -40,3 +41,19 @@ def wrap_asm(lines: list[str]) -> str:
 bb:
   {body}
 """
+
+def build_scheduler(
+    optimizer: torch.optim.Optimizer,
+    warmup_steps: int,
+    total_steps: int,
+    last_epoch: int = -1,
+) -> torch.optim.lr_scheduler.LambdaLR:
+    """Linear warmup then cosine decay to 0."""
+
+    def lr_lambda(step: int) -> float:
+        if step < warmup_steps:
+            return step / max(warmup_steps, 1)
+        progress = (step - warmup_steps) / max(total_steps - warmup_steps, 1)
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch=last_epoch)

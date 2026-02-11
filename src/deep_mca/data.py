@@ -85,3 +85,30 @@ def collate_fn(
         "lengths": torch.tensor(lengths, dtype=torch.long),
         "targets": torch.tensor(targets, dtype=torch.float32),
     }
+
+class CollateLM:
+    """
+    Pad sequences and return input-ids, attention_mask, and labels (with pad positions masked as -100).
+    Drops sequences that failed disassembly.
+    """
+
+    def __init__(self, pad_id: int):
+        self.pad_id = int(pad_id)
+
+    def __call__(self, batch: list[torch.Tensor]) -> dict[str, torch.Tensor]:
+        batch = [x for x in batch if x.numel() > 0]
+        if len(batch) == 0:
+            dummy = torch.tensor([[self.pad_id]], dtype=torch.long)
+            return {
+                "input_ids": dummy,
+                "attention_mask": (dummy != self.pad_id).long(),
+                "labels": torch.full_like(dummy, -100),
+            }
+
+        input_ids = pad_sequence(batch, batch_first=True, padding_value=self.pad_id)
+        attention_mask = (input_ids != self.pad_id).long()
+
+        labels = input_ids.clone()
+        labels[input_ids == self.pad_id] = -100
+
+        return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}

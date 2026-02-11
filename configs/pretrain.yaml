@@ -1,0 +1,31 @@
+model:
+  hidden_size: 256
+  num_layers: 24
+  state_size: 16
+
+data:
+  dataset: stevenhe04/x86-bb-24m
+  split: train
+  field: hex
+  max_seq_len: 128
+
+  #can toggle on/off to enable eval during pretraining 
+  eval_split: null
+
+training:
+  seed: 42
+  batch_size: 8
+  lr: 5e-4
+  weight_decay: 0.01
+  max_steps: 9000
+  warmup_ratio: 0.1
+  grad_clip: 1.0
+  log_interval: 50
+  eval_interval: 1000
+
+  checkpoint_dir: checkpoints/pretrain
+
+wandb:
+  project: deep-mca-pretrain
+  entity: mamba-mca
+  name: null
