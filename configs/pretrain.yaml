@@ -8,6 +8,7 @@ data:
   split: train
   field: hex
   max_seq_len: 128
+  
   #can toggle on/off to enable eval during pretraining 
   eval_split: null
 

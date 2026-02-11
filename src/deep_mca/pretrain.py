@@ -5,24 +5,25 @@ Usage:
   uv run deep-mca-pretrain --config configs/pretrain.yaml
 """
 
+import argparse
 import math
 import random
-from transformers import MambaConfig, MambaForCausalLM
-import argparse
 from pathlib import Path
+
 import torch
 import yaml
-from torch.utils.data import DataLoader, Dataset
 from datasets import load_dataset
-from deep_mca.utils import disassemble_hex, build_scheduler
+from torch.utils.data import DataLoader, Dataset
+from transformers import MambaConfig, MambaForCausalLM
 
 from deep_mca.data import CollateLM, TextAssemblyLMTokenizer
+from deep_mca.utils import build_scheduler, disassemble_hex
 
 # Text Assembly LM Tokenizer is a stand-in, replace with proper tokenization later
 
 
 def load_config(path: str | Path) -> dict:
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f)
 
 
@@ -30,7 +31,6 @@ def set_seed(seed: int) -> None:
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
 
 
 class HFHexMap(Dataset):
@@ -53,11 +53,11 @@ class HFHexMap(Dataset):
         self.ds = load_dataset(dataset_name, split=split, streaming=False)
         self.field = field
         self.max_seq_len = max_seq_len
-        self.tokenizer = tokenizer 
-    
+        self.tokenizer = tokenizer
+
     def __len__(self) -> int:
         return len(self.ds)
-    
+
     def __getitem__(self, idx: int) -> torch.Tensor:
         ex = self.ds[idx]
         hex_str = ex.get(self.field)
@@ -70,7 +70,7 @@ class HFHexMap(Dataset):
         # Normalize to list[str] of instruction lines
         if not asm:
             return torch.tensor([], dtype=torch.long)
-        
+
         if isinstance(asm, str):
             asm_lines = [ln.strip() for ln in asm.splitlines() if ln.strip()]
         elif isinstance(asm, list):
@@ -86,6 +86,7 @@ class HFHexMap(Dataset):
             tokens = tokens[: self.max_seq_len - 1] + [self.tokenizer.eos_id]
 
         return torch.tensor(tokens, dtype=torch.long)
+
 
 @torch.no_grad()
 def evaluate(
@@ -118,7 +119,6 @@ def evaluate(
     return {"eval/loss": avg_loss, "eval/ppl": math.exp(avg_loss)}
 
 
-
 def train(config: dict) -> None:
     cfg_model = config["model"]
     cfg_data = config["data"]
@@ -143,10 +143,10 @@ def train(config: dict) -> None:
         )
     except ImportError:
         print("wandb not installed, skipping logging")
-    
+
     # -- data --
     tokenizer = TextAssemblyLMTokenizer()
-    
+
     train_ds = HFHexMap(
         dataset_name=cfg_data["dataset"],
         split=cfg_data["split"],
@@ -167,15 +167,15 @@ def train(config: dict) -> None:
     eval_loader = None
     eval_split = cfg_data.get("eval_split")
 
-    #can toggle in pretrain.yaml
+    # can toggle in pretrain.yaml
     if eval_split:
         eval_ds = HFHexMap(
-                dataset_name=cfg_data["dataset"],
-                split=eval_split,
-                field=cfg_data["field"],
-                max_seq_len=cfg_data["max_seq_len"],
-                tokenizer=tokenizer,
-            )
+            dataset_name=cfg_data["dataset"],
+            split=eval_split,
+            field=cfg_data["field"],
+            max_seq_len=cfg_data["max_seq_len"],
+            tokenizer=tokenizer,
+        )
         eval_loader = DataLoader(
             eval_ds,
             batch_size=cfg_train["batch_size"],
@@ -216,7 +216,7 @@ def train(config: dict) -> None:
     ckpt_dir = Path(cfg_train["checkpoint_dir"])
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    use_amp = (device.type == "cuda")
+    use_amp = device.type == "cuda"
     model.train()
     global_step = 0
 
@@ -260,7 +260,6 @@ def train(config: dict) -> None:
                     f"loss={eval_metrics['eval/loss']:.4f} "
                     f"ppl={eval_metrics['eval/ppl']:.2f}"
                 )
-
 
     # Final save
     final_path = ckpt_dir / "backbone.pt"
